@@ -1,12 +1,11 @@
 import React,{Suspense,useRef,useState,useEffect,useMemo} from 'react'
 import {Canvas,useFrame} from '@react-three/fiber'
-import {Environment,Lightformer,useGLTF,Edges} from '@react-three/drei'
+import {Environment,Lightformer,useGLTF} from '@react-three/drei'
 import * as THREE from 'three'
 import {S} from './store'
 import modelUrl from './ironman.glb?url'
 
 const MODEL=modelUrl                     // ironman.glb in the project root (your original file, untouched)
-const CHEST=[0,1.05,.27]                  // reactor position for the built-in fallback suit
 const mob=()=>innerWidth<768
 // per-section camera keyframes: [camY, camZ, lookY, modelX]
 const KF=[[.3,7.5,0,1.7],[1.2,4.6,1,-1.5],[1.8,3,1.55,1.5],[.3,7,0,0],[1.1,2.5,1.05,0],[.2,11,0,0]]
@@ -19,7 +18,6 @@ function GLB(){
   useEffect(()=>()=>o.traverse(n=>{n.geometry?.dispose?.()}),[o])
   return <primitive object={o}/>
 }
-const Fallback=Suit
 useGLTF.preload(MODEL)
 class Boundary extends React.Component{state={e:0};static getDerivedStateFromError(){return{e:1}};render(){return this.state.e?this.props.fb:this.props.children}}
 
@@ -72,7 +70,7 @@ export default function Scene(){
       <Lightformer form="rect" intensity={1.5} position={[0,1,6]} scale={[10,6,1]}/>
       <Lightformer form="rect" intensity={1.5} position={[0,2,-6]} scale={[10,6,1]}/>
     </Environment>
-    <Rig><Boundary fb={<Fallback/>}><Suspense fallback={null}><GLB/></Suspense></Boundary></Rig>
+    <Rig><Boundary fb={null}><Suspense fallback={null}><GLB/></Suspense></Boundary></Rig>
     <Dust n={M_?60:160} size={.02}/><Dust n={M_?20:50} size={.05}/>
   </Canvas></div>
 }
