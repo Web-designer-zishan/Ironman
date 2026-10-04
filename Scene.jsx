@@ -3,9 +3,11 @@ import {Canvas,useFrame} from '@react-three/fiber'
 import {Environment,Lightformer,useGLTF,Edges} from '@react-three/drei'
 import * as THREE from 'three'
 import {S} from './store'
+import modelUrl from './ironman.glb?url'
 
-const MODEL='/models/ironman.glb'        // <- replace this file to swap the suit
-const CHEST=[0,1.05,.27]                  // reactor position (tweak for your GLB)
+const MODEL=modelUrl                     // ironman.glb in the project root (optimised from your file)
+const CHEST=[0,1.05,.27]                  // reactor position for the built-in fallback suit
+const GL_CHEST=[.12,1.03,.38],GL_EYES=[[-.013,1.43,.28],[.107,1.43,.28]] // positions on your GLB                  // reactor position (tweak for your GLB)
 const mob=()=>innerWidth<768
 // per-section camera keyframes: [camY, camZ, lookY, modelX]
 const KF=[[.3,7.5,0,1.7],[1.2,4.6,1,-1.5],[1.8,3,1.55,1.5],[.3,7,0,0],[1.1,2.5,1.05,0],[.2,11,0,0]]
@@ -74,20 +76,27 @@ function GLB(){
     c.scale.setScalar(k);c.position.set(-t.x*k,-t.y*k,-t.z*k)
     c.traverse(n=>{if(n.isMesh&&n.material)n.material.envMapIntensity=1.6});return c},[scene])
   useEffect(()=>()=>o.traverse(n=>{n.geometry?.dispose?.()}),[o])
-  return <primitive object={o}/>
+  return <><primitive object={o}/><Reactor p={GL_CHEST} rings={false} sz={.55}/>{GL_EYES.map((e,i)=><Eye key={i} p={e}/>)}</>
 }
+function Eye({p}){
+  const r=useRef()
+  useFrame(()=>r.current.scale.setScalar(.16*THREE.MathUtils.smoothstep(S.boot,.6,1)))
+  return <sprite ref={r} position={p}><spriteMaterial map={glowTex} blending={THREE.AdditiveBlending} depthWrite={false} transparent/></sprite>
+}
+const Fallback=()=><><Suit/><Reactor/></>
+useGLTF.preload(MODEL)
 class Boundary extends React.Component{state={e:0};static getDerivedStateFromError(){return{e:1}};render(){return this.state.e?this.props.fb:this.props.children}}
 
-function Reactor(){
+function Reactor({p=CHEST,rings=true,sz=.8}){
   const r=useRef(),l=useRef(),s=useRef()
   useFrame((_,dt)=>{
     const a=Math.max(0,(S.boot-.5)*2),p=S.pulse
-    r.current.children.forEach((c,i)=>c.rotation.z+=dt*(i%2?-1:1)*(.6+i*.5))
-    l.current.intensity=4*a*(.75+.25*p);s.current.scale.setScalar(.8*a*(.9+.2*p))
+    r.current?.children.forEach((c,i)=>c.rotation.z+=dt*(i%2?-1:1)*(.6+i*.5))
+    l.current.intensity=4*a*(.75+.25*p);s.current.scale.setScalar(sz*a*(.9+.2*p))
   })
-  return <group position={CHEST}>
-    <group ref={r}>{[.1,.15,.2].map((R,i)=><mesh key={i}><torusGeometry args={[R,.007+i*.004,12,i===1?6:64]}/><meshBasicMaterial color={i===1?'#ffffff':'#8FDFFF'}/></mesh>)}</group>
-    <mesh position-z={.005}><circleGeometry args={[.07,32]}/><meshBasicMaterial color="#e6fbff"/></mesh>
+  return <group position={p}>
+    {rings&&<><group ref={r}>{[.1,.15,.2].map((R,i)=><mesh key={i}><torusGeometry args={[R,.007+i*.004,12,i===1?6:64]}/><meshBasicMaterial color={i===1?'#ffffff':'#8FDFFF'}/></mesh>)}</group>
+    <mesh position-z={.005}><circleGeometry args={[.07,32]}/><meshBasicMaterial color="#e6fbff"/></mesh></>}
     <sprite ref={s}><spriteMaterial map={glowTex} blending={THREE.AdditiveBlending} depthWrite={false} transparent/></sprite>
     <pointLight ref={l} color="#8FDFFF" distance={4}/>
   </group>
@@ -133,8 +142,6 @@ function Dust({n,size}){
 }
 
 export default function Scene(){
-  const [has,setHas]=useState(false)
-  useEffect(()=>{fetch(MODEL,{method:'HEAD'}).then(r=>setHas(r.ok&&!(r.headers.get('content-type')||'').includes('html'))).catch(()=>{})},[])
   const M_=mob()
   return <div className="cv"><Canvas dpr={[1,M_?1.5:2]} camera={{fov:35,position:[0,.3,11]}} gl={{antialias:!M_,toneMapping:THREE.ACESFilmicToneMapping}}>
     <color attach="background" args={['#050505']}/><fog attach="fog" args={['#050505',9,22]}/>
@@ -146,7 +153,7 @@ export default function Scene(){
     <directionalLight position={[3,5,4]} intensity={1.6}/>
     <pointLight color="#E21E2A" position={[-3,1,2]} intensity={25}/>
     <pointLight color="#c8f1ff" position={[3,3,-3]} intensity={30}/>
-    <Rig>{has?<Boundary fb={<Suit/>}><Suspense fallback={<Suit/>}><GLB/></Suspense></Boundary>:<Suit/>}<Reactor/></Rig>
+    <Rig><Boundary fb={<Fallback/>}><Suspense fallback={null}><GLB/></Suspense></Boundary></Rig>
     <Dust n={M_?60:160} size={.02}/><Dust n={M_?20:50} size={.05}/>
   </Canvas></div>
 }
