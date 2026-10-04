@@ -3,7 +3,7 @@
 html{scroll-behavior:smooth}
 body{background:#050505;color:#eee;font-family:'Space Grotesk',Inter,system-ui,sans-serif;overflow-x:hidden;touch-action:pan-y;-webkit-font-smoothing:antialiased}
 .cv{position:fixed;inset:0;z-index:0}
-.cv::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 70% 40%,rgba(181,18,27,.14),transparent 60%),linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px) 0 0/60px 60px,radial-gradient(ellipse at center,transparent 40%,#050505 100%)}
+.cv::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px) 0 0/60px 60px,radial-gradient(ellipse at center,transparent 40%,#050505 100%)}
 main{position:relative;z-index:2;pointer-events:none}
 main a,main button{pointer-events:auto}
 .sec{min-height:100vh;display:flex;align-items:center;padding:12vh 6vw;position:relative}
