@@ -1,40 +1,70 @@
 import React,{Suspense,useRef,useState,useEffect,useMemo} from 'react'
 import {Canvas,useFrame} from '@react-three/fiber'
-import {Environment,Lightformer,useGLTF} from '@react-three/drei'
+import {Environment,Lightformer,useGLTF,Edges} from '@react-three/drei'
 import * as THREE from 'three'
 import {S} from './store'
-import suitUrl from './suit.jpg'
 
 const MODEL='/models/ironman.glb'        // <- replace this file to swap the suit
-const CHEST=[0,.85,.28]                  // reactor position (tweak for your GLB)
+const CHEST=[0,1.05,.27]                  // reactor position (tweak for your GLB)
 const mob=()=>innerWidth<768
 // per-section camera keyframes: [camY, camZ, lookY, modelX]
-const KF=[[.3,7.5,0,1.7],[1.2,4.6,1,-1.5],[1.8,3.8,1.55,1.5],[.3,7,0,0],[1.1,3.4,1.15,0],[.2,11,0,0]]
+const KF=[[.3,7.5,0,1.7],[1.2,4.6,1,-1.5],[1.8,3,1.55,1.5],[.3,7,0,0],[1.1,2.5,1.05,0],[.2,11,0,0]]
 
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(64,64,0,64,64,64)
 g.addColorStop(0,'rgba(210,248,255,1)');g.addColorStop(.3,'rgba(143,223,255,.4)');g.addColorStop(1,'rgba(143,223,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})()
 
-function useCutout(url){
-  const [t,setT]=useState(null)
-  useEffect(()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height
-    const x=c.getContext('2d');x.drawImage(im,0,0);const d=x.getImageData(0,0,c.width,c.height),a=d.data
-    for(let i=0;i<a.length;i+=4)a[i+3]=Math.min(255,Math.max(0,(Math.max(a[i],a[i+1],a[i+2])-10)*8))
-    x.putImageData(d,0,0);const tx=new THREE.CanvasTexture(c);tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=8;setT(tx)};im.src=url},[url])
-  return t
-}
-function Glow({p,s,c='#8FDFFF',k=1,pulse}){
-  const r=useRef()
-  useFrame(()=>{r.current.scale.setScalar(s*THREE.MathUtils.smoothstep(S.boot,.5,1)*(pulse?.9+.2*S.pulse:1))})
-  return <sprite ref={r} position={p}><spriteMaterial map={glowTex} color={c} opacity={k} blending={THREE.AdditiveBlending} depthWrite={false} transparent/></sprite>
-}
-function ImageSuit(){ // your reference image, background keyed out
-  const t=useCutout(suitUrl);if(!t)return null
-  const H=3.6,W=H*548/1341
-  return <group>
-    <Glow p={[0,.2,-.4]} s={5.5} c="#B5121B" k={.35}/>
-    <mesh><planeGeometry args={[W,H]}/><meshBasicMaterial map={t} transparent toneMapped={false} fog={false} depthWrite={false}/></mesh>
-    <Glow p={[.19,1.17,.02]} s={.9} pulse/>
-    <Glow p={[.01,1.56,.02]} s={.25}/><Glow p={[.17,1.56,.02]} s={.25}/>
+const red=new THREE.MeshPhysicalMaterial({color:'#a30f18',metalness:.85,roughness:.25,clearcoat:1,clearcoatRoughness:.12})
+const gold=new THREE.MeshPhysicalMaterial({color:'#d1a03a',metalness:1,roughness:.24,clearcoat:.5})
+const gun=new THREE.MeshStandardMaterial({color:'#24272b',metalness:.9,roughness:.45})
+const eye=new THREE.MeshStandardMaterial({color:'#000',emissive:'#bfeaff',emissiveIntensity:0})
+const P=({g='c',a,p,r,s,m,e=1,children})=><mesh position={p} rotation={r} scale={s} material={m}>
+  {g==='c'?<cylinderGeometry args={a}/>:g==='s'?<sphereGeometry args={a}/>:<boxGeometry args={a}/>}
+  {e&&!mob()?<Edges threshold={30} color="#120000"/>:null}{children}</mesh>
+
+function Suit(){ // procedural Mark VII, modelled from the reference sheet
+  useFrame(()=>{eye.emissiveIntensity=6*THREE.MathUtils.smoothstep(S.boot,.6,1)})
+  return <group scale={.93} position={[0,.26,0]}>
+    <group position={[0,1.42,0]}>{/* helmet */}
+      <P g="s" a={[.21,24,18]} s={[1,1.2,1.08]} m={red}/>
+      <P g="b" a={[.27,.3,.1]} p={[0,-.05,.19]} m={gold}/>
+      <P a={[.11,.06,.14,6]} p={[0,-.25,.19]} m={gold}/>
+      {[-1,1].map(x=><group key={x}>
+        <P g="b" a={[.1,.025,.02]} p={[x*.08,.03,.245]} r={[0,0,x*.2]} m={eye} e={0}/>
+        <P a={[.065,.065,.03,16]} p={[x*.215,0,0]} r={[0,0,Math.PI/2]} m={gold}/></group>)}
+    </group>
+    <P a={[.09,.11,.2,10]} p={[0,1.2,0]} m={gun} e={0}/>
+    <P a={[.44,.3,.62,8]} p={[0,.75,0]} s={[1.15,1,.62]} m={red}/>{/* chest */}
+    <P g="b" a={[.13,.5,.05]} p={[0,.72,-.27]} m={gold}/>{/* spine plate */}
+    <P g="b" a={[.34,.12,.05]} p={[0,.95,-.26]} m={gold}/>
+    <P a={[.2,.2,.5,8]} p={[0,.12,0]} s={[1,1,.7]} m={gun} e={0}/>{/* waist core */}
+    <P a={[.28,.25,.17,8]} p={[0,.3,0]} s={[1,1,.75]} m={red}/>
+    <P a={[.25,.23,.15,8]} p={[0,.14,0]} s={[1,1,.75]} m={red}/>
+    <P a={[.23,.27,.15,8]} p={[0,-.02,0]} s={[1,1,.75]} m={red}/>
+    <P a={[.3,.34,.2,8]} p={[0,-.22,0]} s={[1.2,1,.8]} m={red}/>
+    {[-1,1].map(x=><group key={x}>
+      <P g="s" a={[.24,20,16]} p={[x*.56,1.02,0]} s={[1.1,.9,1]} m={red}/>
+      <group position={[x*.6,.98,0]} rotation={[.1,0,x*.12]}>{/* arm */}
+        <P a={[.13,.11,.5,12]} p={[0,-.27,0]} m={red}/>
+        <P g="s" a={[.1,12,12]} p={[0,-.52,0]} m={gun} e={0}/>
+        <group position={[0,-.52,0]} rotation={[-.5,0,0]}>
+          <P a={[.12,.15,.5,12]} p={[0,-.3,0]} m={red}/>
+          <P a={[.115,.115,.08,12]} p={[0,-.1,0]} m={gold}/>
+          <P g="b" a={[.2,.2,.22]} p={[0,-.64,.03]} m={red}/>
+        </group>
+      </group>
+      <group position={[x*.2,-.38,0]} rotation={[0,0,x*.05]}>{/* leg */}
+        <P a={[.2,.15,.8,10]} p={[0,-.42,0]} s={[1,1,.9]} m={gold}/>
+        <P a={[.21,.2,.12,10]} p={[0,-.05,0]} s={[1,1,.9]} m={red}/>
+        <group position={[0,-.84,0]}>
+          <P g="s" a={[.13,12,12]} m={gun} e={0}/>
+          <P g="b" a={[.2,.13,.12]} p={[0,.02,.1]} m={red}/>
+          <P a={[.15,.11,.8,10]} p={[0,-.42,0]} s={[1,1,1.1]} m={red}/>
+          <P g="s" a={[.14,12,12]} p={[0,-.25,-.07]} s={[1,1.6,1]} m={red}/>
+          <P g="b" a={[.24,.14,.5]} p={[0,-.9,.1]} m={red}/>
+          <P g="b" a={[.22,.1,.2]} p={[0,-.92,.32]} m={red}/>
+        </group>
+      </group>
+    </group>)}
   </group>
 }
 
@@ -84,8 +114,7 @@ function Rig({children}){
     g.current.position.x+=((Mb?0:k[3])-g.current.position.x)*d
     g.current.position.y=Math.sin(T*.8)*.06
     g.current.scale.setScalar(.85+.15*b)
-    if(S.flat){S.rot=THREE.MathUtils.clamp(S.rot,-.7,.7);h.current.rotation.y=S.rot+Math.sin(T*.3)*.1+S.spin*Math.sin(T*1.2)*.5}
-    else{S.rot+=dt*S.spin*1.2;h.current.rotation.y=S.rot+Math.sin(T*.3)*.35}
+    S.rot+=dt*S.spin*1.2;h.current.rotation.y=S.rot+Math.sin(T*.3)*.35
     S.pulse=.5+.5*Math.sin(T*2.2)
     document.documentElement.style.setProperty('--pulse',S.pulse.toFixed(3))
   })
@@ -106,7 +135,7 @@ function Dust({n,size}){
 export default function Scene(){
   const [has,setHas]=useState(false)
   useEffect(()=>{fetch(MODEL,{method:'HEAD'}).then(r=>setHas(r.ok&&!(r.headers.get('content-type')||'').includes('html'))).catch(()=>{})},[])
-  const M_=mob();S.flat=!has
+  const M_=mob()
   return <div className="cv"><Canvas dpr={[1,M_?1.5:2]} camera={{fov:35,position:[0,.3,11]}} gl={{antialias:!M_,toneMapping:THREE.ACESFilmicToneMapping}}>
     <color attach="background" args={['#050505']}/><fog attach="fog" args={['#050505',9,22]}/>
     <Environment resolution={256}>
@@ -117,7 +146,7 @@ export default function Scene(){
     <directionalLight position={[3,5,4]} intensity={1.6}/>
     <pointLight color="#E21E2A" position={[-3,1,2]} intensity={25}/>
     <pointLight color="#c8f1ff" position={[3,3,-3]} intensity={30}/>
-    <Rig>{has?<><Boundary fb={<ImageSuit/>}><Suspense fallback={<ImageSuit/>}><GLB/></Suspense></Boundary><Reactor/></>:<ImageSuit/>}</Rig>
+    <Rig>{has?<Boundary fb={<Suit/>}><Suspense fallback={<Suit/>}><GLB/></Suspense></Boundary>:<Suit/>}<Reactor/></Rig>
     <Dust n={M_?60:160} size={.02}/><Dust n={M_?20:50} size={.05}/>
   </Canvas></div>
 }
